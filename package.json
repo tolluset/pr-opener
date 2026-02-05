@@ -1,0 +1,18 @@
+{
+  "name": "pr-opener",
+  "version": "1.0.0",
+  "description": "Opens Chrome tabs for GitHub PR review requests",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dry-run": "node index.js --dry-run"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^4.0.17"
+  }
+}
