@@ -1,4 +1,7 @@
 {
   "maxTabsToOpen": 5,
-  "paused": false
+  "paused": false,
+  "excludeDraft": true,
+  "notifiedRetentionDays": 7,
+  "enableNotification": true
 }

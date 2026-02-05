@@ -57,7 +57,7 @@ describe('PR Notifier', () => {
 
     it('preserves existing records', async () => {
       const date = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
-      writeNotified({ 'owner/repo#123': { notifiedAt: date, updatedAt: date, title: 'Test' } });
+      writeNotified({ 'owner/repo#123': { at: date, title: 'Test' } });
 
       const { code } = await runScript(['--dry-run']);
       expect(code).toBe(0);
@@ -90,6 +90,50 @@ describe('PR Notifier', () => {
       const { code, stdout } = await runScript(['--dry-run']);
       expect(code).toBe(0);
       expect(stdout).toMatch(/Started/);
+    });
+  });
+
+  // 古い通知のクリーンアップテスト
+  describe('Cleanup', () => {
+    it('removes old notifications beyond retention period', async () => {
+      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(); // 10日前
+      const recentDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(); // 3日前
+      writeNotified({
+        'owner/old#1': { at: oldDate, title: 'Old PR' },
+        'owner/recent#2': { at: recentDate, title: 'Recent PR' },
+      });
+
+      const { code } = await runScript(['--dry-run']);
+      expect(code).toBe(0);
+
+      const data = readNotified();
+      expect(data?.['owner/old#1']).toBeUndefined(); // 古いのは削除
+      expect(data?.['owner/recent#2']).toBeDefined(); // 新しいのは残る
+    });
+  });
+
+  // stats コマンドテスト
+  describe('Stats', () => {
+    it('shows stats with empty history', async () => {
+      const { stdout, code } = await runScript(['stats']);
+      expect(code).toBe(0);
+      expect(stdout).toMatch(/PR Opener Stats/);
+      expect(stdout).toMatch(/Total PRs notified: 0/);
+    });
+
+    it('shows stats with PR history', async () => {
+      const recentDate = new Date().toISOString();
+      writeNotified({
+        'owner/repo-a#1': { at: recentDate, title: 'PR 1' },
+        'owner/repo-a#2': { at: recentDate, title: 'PR 2' },
+        'owner/repo-b#3': { at: recentDate, title: 'PR 3' },
+      });
+
+      const { stdout, code } = await runScript(['stats']);
+      expect(code).toBe(0);
+      expect(stdout).toMatch(/Total PRs notified: 3/);
+      expect(stdout).toMatch(/Last 7 days: 3/);
+      expect(stdout).toMatch(/owner\/repo-a \(2\)/);
     });
   });
 });
