@@ -41,6 +41,7 @@ node ~/.pr-opener/index.js --dry-run  # test
 node ~/.pr-opener/index.js pause      # pause
 node ~/.pr-opener/index.js resume     # resume
 node ~/.pr-opener/index.js status     # check status
+node ~/.pr-opener/index.js stats      # view statistics
 pkill -f "pr-opener/index.js"         # stop
 ```
 
@@ -51,7 +52,10 @@ Edit `~/.pr-opener/config.json`:
 ```json
 {
   "maxTabsToOpen": 5,
-  "paused": false
+  "paused": false,
+  "excludeDraft": true,
+  "notifiedRetentionDays": 7,
+  "enableNotification": true
 }
 ```
 
@@ -59,3 +63,6 @@ Edit `~/.pr-opener/config.json`:
 |-----|---------|-------------|
 | `maxTabsToOpen` | 5 | Max tabs per run |
 | `paused` | false | Pause notifications |
+| `excludeDraft` | true | Skip draft PRs |
+| `notifiedRetentionDays` | 7 | Days to keep notification history |
+| `enableNotification` | true | macOS notification center alert |
