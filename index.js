@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,8 +9,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_FILE = join(__dirname, 'config.json');
 const LOGS_DIR = join(__dirname, 'logs');
 const NOTIFIED_FILE = join(LOGS_DIR, 'notified.json');
+const LOG_FILE = join(LOGS_DIR, 'stdout.log');
 const DRY_RUN = process.argv.includes('--dry-run');
 const COMMAND = process.argv[2]; // 'pause' | 'resume' | 'status' | undefined
+
+// ログディレクトリを事前に作成
+mkdirSync(LOGS_DIR, { recursive: true });
+
+function log(...args) {
+  const msg = args.join(' ');
+  console.log(msg);
+  try { appendFileSync(LOG_FILE, msg + '\n'); } catch {}
+}
+
+function logError(...args) {
+  const msg = args.join(' ');
+  console.error(msg);
+  try { appendFileSync(LOG_FILE, '[ERROR] ' + msg + '\n'); } catch {}
+}
 
 if (COMMAND === 'pause' || COMMAND === 'resume' || COMMAND === 'status') {
   handleCommand(COMMAND);
@@ -119,7 +135,7 @@ function fetchPRs(excludeDraft = true) {
     const cmd = `gh search prs --review-requested=@me --state=open${draftFilter} --json number,url,repository,title,updatedAt --limit 50`;
     return JSON.parse(execSync(cmd, { encoding: 'utf-8', timeout: 30000 }));
   } catch (e) {
-    console.error('GitHub API failed:', e.message);
+    logError('GitHub API failed:', e.message);
     return [];
   }
 }
@@ -138,38 +154,38 @@ function sendNotification(title, message) {
 
 function openTab(url) {
   if (DRY_RUN) {
-    console.log(`[DRY-RUN] Would open: ${url}`);
+    log(`[DRY-RUN] Would open: ${url}`);
     return true;
   }
   try {
     execSync(`open -a "Google Chrome" "${url}"`);
-    console.log(`Opened: ${url}`);
+    log(`Opened: ${url}`);
     return true;
   } catch (e) {
-    console.error(`Failed: ${url}`, e.message);
+    logError(`Failed: ${url}`, e.message);
     return false;
   }
 }
 
 function main() {
   const config = loadConfig();
-  if (config.paused) return console.log('Paused');
+  if (config.paused) return log('Paused');
 
-  console.log(`[${new Date().toISOString()}] Started`);
+  log(`[${new Date().toISOString()}] Started`);
 
   let notified = loadNotified();
   notified = cleanupOldNotified(notified, config.notifiedRetentionDays);
 
   const prs = fetchPRs(config.excludeDraft);
-  console.log(`Fetched: ${prs.length} PRs`);
+  log(`Fetched: ${prs.length} PRs`);
   if (!prs.length) {
     saveNotified(notified); // クリーンアップ結果を保存
-    return console.log('No review requests');
+    return log('No review requests');
   }
   const key = (pr) => `${pr.repository.nameWithOwner}#${pr.number}`;
 
   const newPRs = prs.filter((pr) => !notified[key(pr)]).slice(0, config.maxTabsToOpen);
-  console.log(`New: ${newPRs.length} PRs`);
+  log(`New: ${newPRs.length} PRs`);
 
   for (const pr of newPRs) {
     if (openTab(pr.url)) {
@@ -182,7 +198,7 @@ function main() {
   }
 
   saveNotified(notified);
-  console.log('Done');
+  log('Done');
 }
 
 main();

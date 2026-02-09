@@ -19,7 +19,7 @@ git clone https://github.com/tolluset/pr-opener.git ~/.pr-opener
 ```zsh
 # ~/.zshrc
 if [[ -o interactive ]] && ! pgrep -qf "pr-opener/index.js"; then
-  (while true; do node ~/.pr-opener/index.js >> ~/.pr-opener/logs/stdout.log 2>&1; sleep 300; done) &!
+  (while true; do node ~/.pr-opener/index.js 2>/dev/null; sleep 300; done) &!
 fi
 ```
 
@@ -28,7 +28,7 @@ fi
 ```fish
 # ~/.config/fish/config.fish
 if status is-interactive && not pgrep -qf "pr-opener/index.js"
-  fish -c 'while true; node ~/.pr-opener/index.js >> ~/.pr-opener/logs/stdout.log 2>&1; sleep 300; end' &
+  fish -c 'while true; node ~/.pr-opener/index.js 2>/dev/null; sleep 300; end' &
   disown
 end
 ```
