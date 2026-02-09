@@ -3,5 +3,6 @@
   "paused": false,
   "excludeDraft": true,
   "notifiedRetentionDays": 7,
-  "enableNotification": true
+  "enableNotification": true,
+  "reopenAfterDays": 0
 }

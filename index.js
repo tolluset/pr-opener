@@ -39,7 +39,7 @@ if (COMMAND === 'stats') {
 }
 
 function loadConfig() {
-  const defaults = { maxTabsToOpen: 5, paused: false, excludeDraft: true, notifiedRetentionDays: 7, enableNotification: true };
+  const defaults = { maxTabsToOpen: 5, paused: false, excludeDraft: true, notifiedRetentionDays: 7, enableNotification: true, reopenAfterDays: 0 };
   try {
     return { ...defaults, ...JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')) };
   } catch {
@@ -116,14 +116,24 @@ function saveNotified(data) {
   writeFileSync(NOTIFIED_FILE, JSON.stringify(data, null, 2));
 }
 
-// 古い通知を削除（retentionDays日以上経過したもの）
-function cleanupOldNotified(notified, retentionDays) {
-  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+// 古い通知を削除（アクティブPRは再オープン設定に従い保持）
+function cleanupOldNotified(notified, retentionDays, activePRKeys = new Set(), reopenAfterDays = 0) {
+  const retentionCutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const reopenCutoff = reopenAfterDays > 0 ? Date.now() - reopenAfterDays * 24 * 60 * 60 * 1000 : null;
   const cleaned = {};
   for (const [key, value] of Object.entries(notified)) {
     const timestamp = value.at || value.notifiedAt; // 下位互換性
-    if (timestamp && new Date(timestamp).getTime() > cutoff) {
-      cleaned[key] = value;
+    const ts = timestamp ? new Date(timestamp).getTime() : 0;
+    if (activePRKeys.has(key)) {
+      // アクティブPR: reopenAfterDays=0なら常に保持、正数なら期限超過時のみ削除
+      if (!reopenCutoff || ts > reopenCutoff) {
+        cleaned[key] = value;
+      }
+    } else {
+      // 非アクティブPR: 従来通りretentionDays基準で削除
+      if (ts > retentionCutoff) {
+        cleaned[key] = value;
+      }
     }
   }
   return cleaned;
@@ -174,15 +184,18 @@ function main() {
   log(`[${new Date().toISOString()}] Started`);
 
   let notified = loadNotified();
-  notified = cleanupOldNotified(notified, config.notifiedRetentionDays);
 
   const prs = fetchPRs(config.excludeDraft);
   log(`Fetched: ${prs.length} PRs`);
+
+  const key = (pr) => `${pr.repository.nameWithOwner}#${pr.number}`;
+  const activePRKeys = new Set(prs.map(key));
+  notified = cleanupOldNotified(notified, config.notifiedRetentionDays, activePRKeys, config.reopenAfterDays);
+
   if (!prs.length) {
     saveNotified(notified); // クリーンアップ結果を保存
     return log('No review requests');
   }
-  const key = (pr) => `${pr.repository.nameWithOwner}#${pr.number}`;
 
   const newPRs = prs.filter((pr) => !notified[key(pr)]).slice(0, config.maxTabsToOpen);
   log(`New: ${newPRs.length} PRs`);
