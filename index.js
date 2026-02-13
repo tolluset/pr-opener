@@ -16,7 +16,17 @@ const COMMAND = process.argv[2]; // 'pause' | 'resume' | 'status' | undefined
 // ログディレクトリを事前に作成
 mkdirSync(LOGS_DIR, { recursive: true });
 
+// --quietフラグでルーチンログをファイルのみ出力（新規PR・エラーは常にコンソール出力）
+const QUIET = process.argv.includes('--quiet');
+
 function log(...args) {
+  const msg = args.join(' ');
+  if (!QUIET) console.log(msg);
+  try { appendFileSync(LOG_FILE, msg + '\n'); } catch {}
+}
+
+// 新規PR・重要イベント用（quiet時もコンソール出力）
+function logAlways(...args) {
   const msg = args.join(' ');
   console.log(msg);
   try { appendFileSync(LOG_FILE, msg + '\n'); } catch {}
@@ -169,7 +179,7 @@ function openTab(url) {
   }
   try {
     execSync(`open -a "Google Chrome" "${url}"`);
-    log(`Opened: ${url}`);
+    logAlways(`Opened: ${url}`);
     return true;
   } catch (e) {
     logError(`Failed: ${url}`, e.message);
@@ -198,7 +208,7 @@ function main() {
   }
 
   const newPRs = prs.filter((pr) => !notified[key(pr)]).slice(0, config.maxTabsToOpen);
-  log(`New: ${newPRs.length} PRs`);
+  if (newPRs.length > 0) logAlways(`New: ${newPRs.length} PRs`);
 
   for (const pr of newPRs) {
     if (openTab(pr.url)) {
